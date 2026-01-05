@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CS 처리 입력</title>
+  <style>
+    :root{
+      --border:#e5e7eb;
+      --text:#111827;
+      --muted:#6b7280;
+      --btn:#111111;
+      --bg:#ffffff;
+      --radius:16px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      background:var(--bg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+      color:var(--text);
+    }
+    .wrap{
+      max-width: 980px;
+      margin: 26px auto;
+      padding: 0 22px 28px;
+    }
+    h1{
+      margin: 0 0 8px;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .desc{
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status{
+      display:none;
+      margin: 10px 0 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      border: 1px solid var(--border);
+    }
+    .status.ok{ display:block; background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
+    .status.bad{ display:block; background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+    .status.info{ display:block; background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+
+    form{
+      display:grid;
+      gap: 14px;
+    }
+    .grid2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    @media (max-width: 720px){
+      .grid2{ grid-template-columns: 1fr; }
+    }
+    label{
+      display:block;
+      font-size: 13px;
+      font-weight: 700;
+      margin: 0 0 8px;
+    }
+    .field input,
+    .field select,
+    .field textarea{
+      width:100%;
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 14px;
+      font-size: 14px;
+      outline:none;
+      background:#fff;
+    }
+    .field textarea{
+      min-height: 130px;
+      resize: vertical;
+    }
+    .btn{
+      margin-top: 6px;
+      height: 56px;
+      border:none;
+      border-radius: 18px;
+      background: var(--btn);
+      color:#fff;
+      font-size: 16px;
+      font-weight: 800;
+      cursor:pointer;
+    }
+    .btn:disabled{
+      opacity: .6;
+      cursor:not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>CS 처리 입력</h1>
+    <p class="desc">제출하면 구글시트(관리시트)에 한 줄로 기록됩니다.</p>
+
+    <div id="status" class="status"></div>
+
+    <!-- ✅ CORS 회피 -->
+    <iframe name="hiddenFrame" id="hiddenFrame" style="display:none;"></iframe>
+
+    <form id="csForm" target="hiddenFrame" method="POST">
+      <!-- ✅ 토큰(SECRET_TOKEN) -->
+      <input type="hidden" name="token" value="1234" />
+
+      <!-- ✅ 처리일 입력칸 제거 + 숨김값으로 전송 -->
+      <input type="hidden" id="processDate" name="processDate" />
+
+      <div class="grid2">
+        <div class="field">
+          <label for="manager">담당자</label>
+          <input id="manager" name="manager" type="text" placeholder="예: 홍길동(본인성함)" required />
+        </div>
+
+        <div class="field">
+          <label for="customer">고객명</label>
+          <input id="customer" name="customer" type="text" placeholder="예: 김OO (SB1111)" required />
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label for="orderNo">주문번호</label>
+          <input id="orderNo" name="orderNo" type="text" placeholder="예: 251202102" required />
+        </div>
+
+        <div class="field">
+          <label for="type">처리 유형 (구매지연/배송지연/바코드/상품문제)</label>
+          <select id="type" name="type" required>
+            <option value="" selected disabled>선택</option>
+            <option value="구매문제">구매문제</option>
+            <option value="배송문제">배송문제</option>
+            <option value="상품문제">상품문제</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label for="compensation">보상</label>
+          <input id="compensation" name="compensation" type="text" placeholder="예: 포인트 5,000 / 쿠폰 / 예치금보상" />
+        </div>
+
+        <div class="field">
+          <label for="amount">금액(₩)</label>
+          <input id="amount" name="amount" type="number" placeholder="예: 5000" min="0" step="1" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="reason">사유(자유서술)</label>
+        <textarea id="reason" name="reason" placeholder="상세 내용 기재"></textarea>
+      </div>
+
+      <button id="submitBtn" class="btn" type="submit">시트에 저장</button>
+    </form>
+  </div>
+
+  <script>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxJqD0B6sU98yQGRbbFi1P3Cj2PubS7P2WP8BjBmj40cjLWh0cmRugkZwJKnLvdgDMY2g/exec";
+
+    const form = document.getElementById("csForm");
+    const statusEl = document.getElementById("status");
+    const btn = document.getElementById("submitBtn");
+    const iframe = document.getElementById("hiddenFrame");
+    const processDateEl = document.getElementById("processDate");
+
+    form.action = WEB_APP_URL;
+
+    function setStatus(type, msg){
+      statusEl.className = `status ${type}`;
+      statusEl.textContent = msg;
+    }
+
+    function nowKSTString(){
+      // KST 기준: YYYY-MM-DD HH:mm:ss
+      const d = new Date();
+      const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+      const y = kst.getUTCFullYear();
+      const m = String(kst.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(kst.getUTCDate()).padStart(2, "0");
+      const hh = String(kst.getUTCHours()).padStart(2, "0");
+      const mm = String(kst.getUTCMinutes()).padStart(2, "0");
+      const ss = String(kst.getUTCSeconds()).padStart(2, "0");
+      return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
+    }
+
+    // ✅ 제출 직전에 처리일(hidden)에 "전송 시각"을 넣어서 보냄
+    form.addEventListener("submit", () => {
+      processDateEl.value = nowKSTString();
+
+      btn.disabled = true;
+      setStatus("info", "전송 중... (시트 반영까지 몇 초 걸릴 수 있어요)");
+      setTimeout(() => { btn.disabled = false; }, 1500);
+    });
+
+    iframe.addEventListener("load", () => {
+      setStatus("ok", "✅ 저장 요청 전송 완료! 수고 많으셨습니다!");
+      document.getElementById("customer").value = "";
+      document.getElementById("orderNo").value = "";
+      document.getElementById("type").value = "";
+      document.getElementById("compensation").value = "";
+      document.getElementById("amount").value = "";
+      document.getElementById("reason").value = "";
+    });
+  </script>
+</body>
+</html>
